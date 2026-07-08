@@ -44,6 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -112,6 +113,10 @@ fun SearchScreen(db: DatabaseHelper) {
                 Log.e("MemReg", "Search failed", e)
             }
         }
+    }
+
+    LaunchedEffect(selectedCity) {
+        if (query.isNotBlank()) performSearch()
     }
 
     Surface(modifier = Modifier.fillMaxSize().imePadding(), color = MaterialTheme.colorScheme.background) {
