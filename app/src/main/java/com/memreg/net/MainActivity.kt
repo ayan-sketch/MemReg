@@ -81,8 +81,7 @@ class MainActivity : ComponentActivity() {
                             Icon(
                                 painter = painterResource(id = R.mipmap.ic_launcher),
                                 contentDescription = "MemReg",
-                                modifier = Modifier.size(72.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                                modifier = Modifier.size(72.dp)
                             )
                             Spacer(modifier = Modifier.height(20.dp))
                             CircularProgressIndicator(
