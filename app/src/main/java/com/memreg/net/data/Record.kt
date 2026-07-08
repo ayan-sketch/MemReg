@@ -16,7 +16,8 @@ data class Record(
 ) {
     val displayFields: List<Pair<String, String>>
         get() = buildList {
-            fileNo?.let { add("File No" to it) }
+            val letter = title?.trim()?.firstOrNull()?.uppercase()?.let { "$it - " } ?: ""
+            fileNo?.let { add("File No" to "$letter$it") }
             title?.let { add("Title of the Case" to it) }
             ntn?.let { add("NTN" to it) }
             cnic?.let { add("CNIC No" to it) }
