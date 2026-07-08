@@ -55,12 +55,14 @@ class DatabaseHelper private constructor(private val appContext: Context) {
         }
         conditions.add("(${searchOrs.joinToString(" AND ")})")
 
+        val firstWord = words.first()
         val sql = """
             SELECT * FROM records 
             WHERE ${conditions.joinToString(" AND ")}
-            ORDER BY city, file_no
+            ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END, city, file_no
             LIMIT ?
         """.trimIndent()
+        args.add("$firstWord%")
         args.add(limit.toString())
 
         return try {
