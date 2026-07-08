@@ -67,11 +67,7 @@ private val cityMap = mapOf("ATD" to "Abbottabad", "HVN" to "Havelian", "HRP" to
 
 @Composable
 fun SearchScreen(db: DatabaseHelper) {
-    fun autoSectionLabel(q: String, cityCode: String): String {
-        val first = q.firstOrNull()?.uppercase() ?: return cityCode
-        val letter = if (first in "ABCDEFGHIJKLMNOPQRSTUVWXYZ") first else ""
-        return if (letter.isEmpty()) cityCode else "$cityCode-$letter"
-    }
+    fun autoSectionLabel(cityCode: String): String = cityCode
 
     fun loadRecent(prefs: SharedPreferences, cityCode: String): List<String> {
         val raw = prefs.getString("recent_$cityCode", "") ?: ""
@@ -128,7 +124,7 @@ fun SearchScreen(db: DatabaseHelper) {
             ) {
                 Box {
                     OutlinedTextField(
-                        value = autoSectionLabel(query, selectedCity),
+                        value = autoSectionLabel(selectedCity),
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = {
@@ -234,7 +230,7 @@ fun SearchScreen(db: DatabaseHelper) {
                         modifier = Modifier.weight(1f)
                     ) { index ->
                         if (index < results.size) {
-                            RecordCard(record = results[index])
+                            RecordCard(record = results[index], selectedCity = selectedCity)
                         }
                     }
 
@@ -282,7 +278,7 @@ fun SearchScreen(db: DatabaseHelper) {
 }
 
 @Composable
-private fun RecordCard(record: Record) {
+private fun RecordCard(record: Record, selectedCity: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -295,6 +291,23 @@ private fun RecordCard(record: Record) {
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (selectedCity == "All") {
+                Column {
+                    Text(
+                        text = "City",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = record.city,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
             record.displayFields.forEachIndexed { i, (label, value) ->
                 if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Column {
