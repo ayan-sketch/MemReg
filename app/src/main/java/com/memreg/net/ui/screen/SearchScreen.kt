@@ -3,10 +3,7 @@ package com.memreg.net.ui.screen
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -25,8 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
@@ -41,8 +39,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,42 +50,44 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.memreg.net.data.DatabaseHelper
 import com.memreg.net.data.Record
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Composable
-fun SearchScreen(city: String, db: DatabaseHelper, onBack: () -> Unit) {
-    val sections = remember { listOf("All Sections") + ('A'..'Z').map { it.toString() } }
+private val cityOptions = listOf("All", "ATD", "HVN", "HRP")
+private val cityMap = mapOf("ATD" to "Abbottabad", "HVN" to "Havelian", "HRP" to "Haripur")
 
-    fun autoSection(q: String): String {
-        val first = q.firstOrNull()?.uppercase() ?: return "All Sections"
-        return if (first in "ABCDEFGHIJKLMNOPQRSTUVWXYZ") first else "All Sections"
+@Composable
+fun SearchScreen(db: DatabaseHelper) {
+    fun autoSectionLabel(q: String, cityCode: String): String {
+        val first = q.firstOrNull()?.uppercase() ?: return cityCode
+        val letter = if (first in "ABCDEFGHIJKLMNOPQRSTUVWXYZ") first else ""
+        return if (letter.isEmpty()) cityCode else "$cityCode-$letter"
     }
 
-    fun loadRecent(prefs: SharedPreferences, city: String): List<String> {
-        val raw = prefs.getString("recent_$city", "") ?: ""
+    fun loadRecent(prefs: SharedPreferences, cityCode: String): List<String> {
+        val raw = prefs.getString("recent_$cityCode", "") ?: ""
         return if (raw.isBlank()) emptyList() else raw.split("|||")
     }
 
     var query by remember { mutableStateOf("") }
-    var selectedSection by remember { mutableStateOf("All Sections") }
-    var sectionExpanded by remember { mutableStateOf(false) }
+    var selectedCity by remember { mutableStateOf("All") }
+    var cityExpanded by remember { mutableStateOf(false) }
     var results by remember { mutableStateOf<List<Record>>(emptyList()) }
     var currentIndex by remember { mutableIntStateOf(0) }
     var direction by remember { mutableIntStateOf(1) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("memreg_recent", Context.MODE_PRIVATE) }
-    var recentSearches by remember { mutableStateOf(loadRecent(prefs, city)) }
+    var recentSearches by remember { mutableStateOf(loadRecent(prefs, "global")) }
     val keyboardController = LocalSoftwareKeyboardController.current
-
-    BackHandler(onBack = onBack)
 
     fun saveRecent(q: String) {
         if (q.isBlank()) return
@@ -98,15 +96,15 @@ fun SearchScreen(city: String, db: DatabaseHelper, onBack: () -> Unit) {
         list.add(0, q)
         if (list.size > 5) list.removeAt(5)
         recentSearches = list
-        prefs.edit().putString("recent_$city", list.joinToString("|||")).apply()
+        prefs.edit().putString("recent_global", list.joinToString("|||")).apply()
     }
 
     fun performSearch() {
         keyboardController?.hide()
         scope.launch(Dispatchers.IO) {
             try {
-                val section = if (selectedSection == "All Sections") null else selectedSection
-                val res = db.search(city, section, query, limit = 500)
+                val searchCity = cityMap[selectedCity]
+                val res = db.search(searchCity, query, limit = 500)
                 launch(Dispatchers.Main) {
                     if (query.isNotBlank() && res.isNotEmpty()) saveRecent(query)
                     results = res
@@ -124,36 +122,44 @@ fun SearchScreen(city: String, db: DatabaseHelper, onBack: () -> Unit) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, end = 16.dp, top = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Box {
+                    OutlinedTextField(
+                        value = autoSectionLabel(query, selectedCity),
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null,
+                                modifier = Modifier.clickable { cityExpanded = true })
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(),
+                        modifier = Modifier.width(120.dp)
+                    )
+                    DropdownMenu(
+                        expanded = cityExpanded,
+                        onDismissRequest = { cityExpanded = false }
+                    ) {
+                        cityOptions.forEach { c ->
+                            DropdownMenuItem(
+                                text = { Text(c) },
+                                onClick = {
+                                    selectedCity = c
+                                    cityExpanded = false
+                                }
+                            )
+                        }
+                    }
                 }
-                Text(
-                    text = city,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
-                )
-            }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                Spacer(modifier = Modifier.width(8.dp))
+
                 OutlinedTextField(
                     value = query,
-                    onValueChange = { newVal ->
-                        query = newVal
-                        if (newVal.isBlank()) {
-                            selectedSection = "All Sections"
-                        } else if (selectedSection == "All Sections") {
-                            selectedSection = autoSection(newVal)
-                        }
-                    },
+                    onValueChange = { query = it },
                     placeholder = { Text("Search...") },
                     leadingIcon = {
                         IconButton(onClick = { performSearch() }) {
@@ -167,38 +173,6 @@ fun SearchScreen(city: String, db: DatabaseHelper, onBack: () -> Unit) {
                     keyboardActions = KeyboardActions(onSearch = { performSearch() }),
                     modifier = Modifier.weight(1f)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Box {
-                    OutlinedTextField(
-                        value = selectedSection,
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = {
-                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null,
-                                modifier = Modifier.clickable { sectionExpanded = true })
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(),
-                        modifier = Modifier.width(120.dp)
-                    )
-                    DropdownMenu(
-                        expanded = sectionExpanded,
-                        onDismissRequest = { sectionExpanded = false }
-                    ) {
-                        sections.forEach { s ->
-                            DropdownMenuItem(
-                                text = { Text(s) },
-                                onClick = {
-                                    selectedSection = s
-                                    sectionExpanded = false
-                                    performSearch()
-                                }
-                            )
-                        }
-                    }
-                }
             }
 
             if (results.isEmpty()) {
@@ -218,9 +192,6 @@ fun SearchScreen(city: String, db: DatabaseHelper, onBack: () -> Unit) {
                                     .fillMaxWidth()
                                     .clickable {
                                         query = q
-                                        if (selectedSection == "All Sections") {
-                                            selectedSection = autoSection(q)
-                                        }
                                         performSearch()
                                     }
                                     .padding(vertical = 10.dp, horizontal = 4.dp),

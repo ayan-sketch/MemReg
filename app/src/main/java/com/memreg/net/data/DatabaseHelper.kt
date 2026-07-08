@@ -33,19 +33,16 @@ class DatabaseHelper private constructor(private val appContext: Context) {
         }
     }
 
-    fun search(city: String, section: String?, query: String, limit: Int = 50, offset: Int = 0): List<Record> {
+    fun search(city: String?, query: String, limit: Int = 500): List<Record> {
         val words = query.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (words.isEmpty()) return emptyList()
 
         val args = mutableListOf<String>()
         val conditions = mutableListOf<String>()
 
-        conditions.add("city = ?")
-        args.add(city)
-
-        section?.let {
-            conditions.add("section = ?")
-            args.add(it)
+        if (city != null && city != "All") {
+            conditions.add("city = ?")
+            args.add(city)
         }
 
         val searchOrs = mutableListOf<String>()
@@ -61,52 +58,15 @@ class DatabaseHelper private constructor(private val appContext: Context) {
         val sql = """
             SELECT * FROM records 
             WHERE ${conditions.joinToString(" AND ")}
-            ORDER BY section, file_no
-            LIMIT ? OFFSET ?
+            ORDER BY city, file_no
+            LIMIT ?
         """.trimIndent()
         args.add(limit.toString())
-        args.add(offset.toString())
 
         return try {
             queryDb(sql, args.toTypedArray())
         } catch (e: Exception) {
             emptyList()
-        }
-    }
-
-    fun searchCount(city: String, section: String?, query: String): Int {
-        val words = query.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        if (words.isEmpty()) return 0
-
-        val args = mutableListOf<String>()
-        val conditions = mutableListOf<String>()
-
-        conditions.add("city = ?")
-        args.add(city)
-
-        section?.let {
-            conditions.add("section = ?")
-            args.add(it)
-        }
-
-        val searchOrs = mutableListOf<String>()
-        for (word in words) {
-            val colOrs = SEARCH_COLS.joinToString(" OR ") { "$it LIKE ?" }
-            searchOrs.add("($colOrs)")
-            for (i in SEARCH_COLS.indices) {
-                args.add("%$word%")
-            }
-        }
-        conditions.add("(${searchOrs.joinToString(" AND ")})")
-
-        val sql = "SELECT count(*) FROM records WHERE ${conditions.joinToString(" AND ")}"
-        val cursor = db.rawQuery(sql, args.toTypedArray())
-        return try {
-            if (cursor.moveToFirst()) cursor.getInt(0) else 0
-        } catch (e: Exception) {
-            0
-        } finally {
-            cursor.close()
         }
     }
 

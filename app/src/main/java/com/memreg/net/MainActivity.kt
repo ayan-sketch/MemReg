@@ -6,7 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,7 +38,6 @@ import androidx.lifecycle.lifecycleScope
 import com.memreg.net.data.DatabaseHelper
 import com.memreg.net.data.UpdateInfo
 import com.memreg.net.data.UpdateManager
-import com.memreg.net.ui.screen.CityScreen
 import com.memreg.net.ui.screen.SearchScreen
 import com.memreg.net.ui.theme.MemRegTheme
 import kotlinx.coroutines.Dispatchers
@@ -69,7 +67,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             MemRegTheme {
                 var showSplash by remember { mutableStateOf(true) }
-                var selectedCity by remember { mutableStateOf<String?>(null) }
                 var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
                 var updateProgress by remember { mutableIntStateOf(-1) }
                 var isDownloading by remember { mutableStateOf(false) }
@@ -182,8 +179,14 @@ class MainActivity : ComponentActivity() {
 
                     when (state) {
                         is DbState.Loading -> {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator()
+                            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
                             }
                         }
                         is DbState.Error -> {
@@ -193,21 +196,10 @@ class MainActivity : ComponentActivity() {
                                     color = Color.Red,
                                     modifier = Modifier.padding(16.dp)
                                 )
-                                CityScreen(onCitySelected = { selectedCity = it })
                             }
                         }
                         is DbState.Ready -> {
-                            if (selectedCity != null) {
-                                SearchScreen(
-                                    city = selectedCity!!,
-                                    db = state.db,
-                                    onBack = { selectedCity = null }
-                                )
-                            } else {
-                                CityScreen(
-                                    onCitySelected = { selectedCity = it }
-                                )
-                            }
+                            SearchScreen(db = state.db)
                         }
                     }
                 }
